@@ -103,6 +103,48 @@ Verificato contro l'Excel a 6 decimali con i parametri di default
 Il **Composite Intrinsic Value** è la media di Sven Carlin DCF e Relative
 Valuation; il rating (Strong Buy → Strong Sell) deriva dall'upside implicito.
 
+## Il modello Damodaran — FCFF a 3 stadi, 3 scenari (8° modello)
+
+Implementazione **concettualmente fedele** alla metodologia di Aswath Damodaran
+(NYU Stern) — non replica un file Excel specifico come per Sven Carlin, ma ne
+segue gli stessi principi guida dei suoi modelli "ginzu"/"fcff3st", **con in
+aggiunta 3 scenari Bull/Base/Bear pesati (0.2/0.6/0.2)**, sullo stesso schema
+probabilistico di Sven Carlin:
+
+- **3 fasi per scenario**: alta crescita (n1 anni, condivisi tra scenari) →
+  transizione (n2 anni) → stabile (perpetuità). Ogni scenario ha propria
+  crescita, margine target, crescita stabile e sales-to-capital; il costo del
+  capitale (WACC) è condiviso tra scenari (dipende dal rischio sistematico,
+  non dallo scenario macro)
+- **Bottom-up beta**: beta unlevered di settore (dataset illustrativo in
+  `src/services/damodaranIndustryData.js`, include anche margine operativo e
+  sales-to-capital tipici) rilevereggiato con il D/E e la tax rate specifici
+  del titolo — oppure beta manuale
+- **Default calibrati per settore**: cambiando il settore e premendo "Applica
+  default di settore", margine target e sales-to-capital dei 3 scenari
+  vengono ricalcolati sui valori tipici di quel settore (es. software margini
+  alti/basso capitale, retail margini sottili/alto turnover, utility margini
+  stabili/bassa intensità di reinvestimento)
+- **Terminal value coerente**: `reinvestment rate stabile = g / ROIC`, con
+  default `ROIC stabile = WACC stabile` (nessun rendimento in eccesso
+  perpetuo, principio cardine di Damodaran)
+- **Diagnostica per scenario**: warning automatici (taggati Bull/Base/Bear) se
+  g stabile > risk-free rate, se ROIC stabile > WACC stabile, se il
+  reinvestment rate implicito è fuori [0,1], o se il sales-to-capital ratio è
+  fuori range plausibile
+
+Il fair value per azione **pesato sui 3 scenari** entra nel Composite
+Intrinsic Value insieme a Sven Carlin e Relative Valuation (media dei 3).
+
+**Nota sui dati di settore**: i valori (beta, margine tipico,
+sales-to-capital tipico) in `damodaranIndustryData.js` sono un dataset
+illustrativo — l'ordine di grandezza relativo tra settori è ragionevole, ma i
+valori assoluti non sono l'estrazione esatta dell'ultimo file ufficiale
+Damodaran (che cambia ogni gennaio). Per il dato preciso, scarica `betas.xls`
+dal link mostrato in fondo alla vista "Damodaran DCF" e aggiorna i valori nel
+file.
+
+
 ## Note oneste
 
 - **Nessun TypeScript**: il progetto è in JavaScript puro (`.js`/`.jsx`)

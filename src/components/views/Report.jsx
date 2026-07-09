@@ -54,7 +54,8 @@ function Report() {
         <Section n="05" title="Valuation">
           Valore intrinseco composito <b style={{ color: T.green }}>{fmtNum(val.composite)} {cur}</b> ({val.upside >= 0 ? "+" : ""}{fmtPct(val.upside, 0)} vs prezzo).
           Sven Carlin IV {fmtNum(val.sven.intrinsicValue)}, DCF {fmtNum(val.dcf.fairValue)}, Relative {fmtNum(val.rel.average)},
-          Graham {fmtNum(val.graham.revised)}, Lynch {fmtNum(val.lynch.fairValue)}, Owner Earnings {fmtNum(val.oe.capitalized)}.
+          Graham {fmtNum(val.graham.revised)}, Lynch {fmtNum(val.lynch.fairValue)}, Owner Earnings {fmtNum(val.oe.capitalized)},
+          Damodaran FCFF 3 stadi {fmtNum(val.damodaran.valuePerShare)}.
           Prezzo d'acquisto con 30% margine di sicurezza: {fmtNum(val.mos[2].buyBelow)} {cur}.
         </Section>
         <Section n="06" title="Investment Thesis">

@@ -127,8 +127,8 @@ function marginOfSafetyLevels(fairValue) {
 }
 
 /** COMPOSITE INTRINSIC VALUE (Alpha Spread style): media DCF & Relative. */
-function compositeIntrinsic(dcfIV, relIV) {
-  const parts = [dcfIV, relIV].filter(v => isFinite(v) && v > 0);
+function compositeIntrinsic(...values) {
+  const parts = values.filter(v => isFinite(v) && v > 0);
   if (!parts.length) return NaN;
   return parts.reduce((a, b) => a + b, 0) / parts.length;
 }
@@ -144,6 +144,173 @@ function ratingFromUpside(up) {
 }
 
 
+/* ==========================================================================
+ * DAMODARAN — Bottom-up beta, costo del capitale, FCFF a 3 stadi.
+ * Implementazione CONCETTUALMENTE fedele alla metodologia di Aswath
+ * Damodaran (NYU Stern) — non replica un file Excel specifico, ma segue
+ * gli stessi principi dei suoi modelli "ginzu" (fcffginzu / fcff3st):
+ *   - crescita che converge da alta a stabile in 2 fasi (alta + transizione)
+ *   - margine operativo che converge verso un target
+ *   - costo del capitale che converge verso un valore "maturo"
+ *   - reinvestimento stabile = g / ROIC, con vincolo di coerenza ROIC<=WACC
+ * ========================================================================== */
+
+/** Rimuove l'effetto leva dal beta osservato (Hamada, con aggiustamento tax). */
+function unleverBeta(beta, de, taxRate) {
+  return beta / (1 + (1 - taxRate) * de);
+}
+
+/** Rilevereggia un beta unlevered di settore con la struttura del capitale del titolo. */
+function releverBeta(unleveredBeta, de, taxRate) {
+  return unleveredBeta * (1 + (1 - taxRate) * de);
+}
+
+/** Costo dell'equity via CAPM: Ke = Rf + beta * ERP. */
+function costOfEquity(riskFreeRate, beta, erp) {
+  return riskFreeRate + beta * erp;
+}
+
+/** WACC pesato su equity/debito a valori di mercato. */
+function computeWACC({ costOfEquityV, costOfDebtAfterTax, equityValue, debtValue }) {
+  const total = (equityValue || 0) + (debtValue || 0);
+  if (!total) return costOfEquityV;
+  return costOfEquityV * (equityValue / total) + costOfDebtAfterTax * (debtValue / total);
+}
+
+/**
+ * FCFF a 3 stadi (alta crescita -> transizione -> stabile), metodo Damodaran.
+ *
+ * @param revenue0        Ricavi base (anno 0)
+ * @param currentMargin   Margine operativo attuale (EBIT/Ricavi)
+ * @param targetMargin    Margine operativo target/stabile
+ * @param g1              Crescita ricavi in alta crescita
+ * @param n1              Anni di alta crescita
+ * @param n2              Anni di transizione (crescita e margine convergono)
+ * @param gStable         Crescita stabile perpetua (deve essere <= risk-free rate)
+ * @param taxRate         Aliquota fiscale (marginale)
+ * @param salesToCapital  Rapporto vendite/capitale investito (reinvestment = deltaRicavi / questo rapporto)
+ * @param wacc1           Costo del capitale in fase di alta crescita
+ * @param waccStable      Costo del capitale stabile/maturo
+ * @param riskFreeRate    Tasso risk-free (per diagnostica: gStable non deve superarlo)
+ * @param roicStableOverride  ROIC stabile forzato (default = waccStable, no rendimenti in eccesso)
+ * @param netDebt         Debito netto (debt - cash)
+ * @param shares          Azioni in circolazione
+ */
+function damodaranFCFF3Stage({
+  revenue0, currentMargin, targetMargin,
+  g1, n1, n2, gStable,
+  taxRate, salesToCapital,
+  wacc1, waccStable, riskFreeRate,
+  roicStableOverride, netDebt, shares,
+}) {
+  const totalYears = n1 + n2;
+  const rows = [];
+  let revenuePrev = revenue0;
+  let cumDiscount = 1;
+
+  for (let t = 1; t <= totalYears; t++) {
+    // Crescita: costante g1 in alta crescita, poi convergenza lineare verso gStable
+    const growth = t <= n1
+      ? g1
+      : g1 + (gStable - g1) * ((t - n1) / n2);
+    // Margine: convergenza lineare dal margine attuale al target lungo TUTTO il periodo
+    const margin = currentMargin + (targetMargin - currentMargin) * (t / totalYears);
+    // Costo del capitale: costante in alta crescita, poi convergenza lineare verso lo stabile
+    const wacc = t <= n1
+      ? wacc1
+      : wacc1 + (waccStable - wacc1) * ((t - n1) / n2);
+
+    const revenue = revenuePrev * (1 + growth);
+    const ebit = revenue * margin;
+    const ebitAfterTax = ebit * (1 - taxRate);
+    const deltaRevenue = revenue - revenuePrev;
+    const reinvestment = salesToCapital > 0 ? deltaRevenue / salesToCapital : 0;
+    const fcff = ebitAfterTax - reinvestment;
+
+    cumDiscount *= (1 + wacc);
+    const pv = fcff / cumDiscount;
+
+    rows.push({ year: t, growth, margin, revenue, ebit, ebitAfterTax, reinvestment, fcff, wacc, cumDiscount, pv });
+    revenuePrev = revenue;
+  }
+
+  // --- Terminal value (perpetuita' stabile) ---
+  const roicStable = roicStableOverride && roicStableOverride > 0 ? roicStableOverride : waccStable;
+  const reinvestRateStable = roicStable > 0 ? gStable / roicStable : 0;
+  const revenueStable = revenuePrev * (1 + gStable);
+  const ebitStable = revenueStable * targetMargin;
+  const ebitAfterTaxStable = ebitStable * (1 - taxRate);
+  const fcffStable = ebitAfterTaxStable * (1 - reinvestRateStable);
+  const terminalValue = (waccStable - gStable) > 0 ? fcffStable / (waccStable - gStable) : NaN;
+  const terminalPV = terminalValue / cumDiscount;
+
+  const sumPV = rows.reduce((a, r) => a + r.pv, 0);
+  const enterpriseValue = sumPV + terminalPV;
+  const equityValue = enterpriseValue - (netDebt || 0);
+  const valuePerShare = shares ? equityValue / shares : NaN;
+
+  // --- Diagnostica di coerenza (stile Damodaran) ---
+  const diagnostics = [];
+  if (gStable > riskFreeRate) {
+    diagnostics.push({ level: "error", msg: `Crescita stabile (${(gStable * 100).toFixed(1)}%) supera il risk-free rate (${(riskFreeRate * 100).toFixed(1)}%): nessuna azienda può crescere più dell'economia per sempre.` });
+  }
+  if (roicStable > waccStable * 1.0001) {
+    diagnostics.push({ level: "warn", msg: `ROIC stabile (${(roicStable * 100).toFixed(1)}%) > WACC stabile (${(waccStable * 100).toFixed(1)}%): implica rendimenti in eccesso all'infinito, ipotesi molto aggressiva.` });
+  }
+  if (reinvestRateStable < 0 || reinvestRateStable > 1) {
+    diagnostics.push({ level: "error", msg: `Reinvestment rate stabile implicito (${(reinvestRateStable * 100).toFixed(0)}%) fuori dal range 0-100%: verifica g stabile e ROIC stabile.` });
+  }
+  if (salesToCapital > 0 && (salesToCapital < 0.3 || salesToCapital > 8)) {
+    diagnostics.push({ level: "warn", msg: `Sales-to-capital ratio (${salesToCapital.toFixed(2)}x) insolito: verifica la plausibilità rispetto al settore.` });
+  }
+  if (targetMargin < 0 || targetMargin > 0.6) {
+    diagnostics.push({ level: "warn", msg: `Margine operativo target (${(targetMargin * 100).toFixed(0)}%) è insolitamente estremo: verifica il dato.` });
+  }
+
+  return {
+    rows, terminalValue, terminalPV, sumPV, enterpriseValue, equityValue, valuePerShare,
+    roicStable, reinvestRateStable, diagnostics,
+  };
+}
+
+/**
+ * FCFF a 3 stadi, versione a 3 SCENARI pesati (Bull/Base/Bear), sullo stesso
+ * principio dello schema di Sven Carlin: ogni scenario ha una propria
+ * crescita, margine target e sales-to-capital; il costo del capitale (WACC)
+ * e l'orizzonte temporale sono condivisi (dipendono dal rischio sistematico
+ * e dal profilo di maturazione, non dallo scenario macro).
+ *
+ * @param shared     { revenue0, currentMargin, n1, n2, taxRate, wacc1,
+ *                     waccStable, riskFreeRate, roicStableOverride,
+ *                     netDebt, shares }
+ * @param scenarios  [{ g1, targetMargin, gStable, salesToCapital }] x3 (Bull, Base, Bear)
+ * @param probabilities  [pBull, pBase, pBear]
+ */
+function damodaranFCFF3StageWeighted(shared, scenarios, probabilities) {
+  const results = scenarios.map(sc => damodaranFCFF3Stage({
+    revenue0: shared.revenue0, currentMargin: shared.currentMargin, targetMargin: sc.targetMargin,
+    g1: sc.g1, n1: shared.n1, n2: shared.n2, gStable: sc.gStable,
+    taxRate: shared.taxRate, salesToCapital: sc.salesToCapital,
+    wacc1: shared.wacc1, waccStable: shared.waccStable, riskFreeRate: shared.riskFreeRate,
+    roicStableOverride: shared.roicStableOverride, netDebt: shared.netDebt, shares: shared.shares,
+  }));
+
+  const probSum = probabilities.reduce((a, b) => a + b, 0) || 1;
+  const weightedValuePerShare = results.reduce((acc, r, i) => acc + (isFinite(r.valuePerShare) ? r.valuePerShare * probabilities[i] : 0), 0) / probSum;
+  const weightedEnterpriseValue = results.reduce((acc, r, i) => acc + r.enterpriseValue * probabilities[i], 0) / probSum;
+
+  const labels = ["Bull", "Base", "Bear"];
+  const diagnostics = results.flatMap((r, i) => r.diagnostics.map(d => ({ ...d, msg: `[${labels[i] || `Scenario ${i + 1}`}] ${d.msg}` })));
+
+  return {
+    scenarios: results,          // risultato completo per scenario (rows, terminalValue, ecc.)
+    valuePerShare: weightedValuePerShare,
+    enterpriseValue: weightedEnterpriseValue,
+    diagnostics,
+    probabilities,
+  };
+}
+
 export {
   svenCarlinScenario,
   svenCarlinIntrinsicValue,
@@ -155,4 +322,10 @@ export {
   marginOfSafetyLevels,
   compositeIntrinsic,
   ratingFromUpside,
+  unleverBeta,
+  releverBeta,
+  costOfEquity,
+  computeWACC,
+  damodaranFCFF3Stage,
+  damodaranFCFF3StageWeighted,
 };

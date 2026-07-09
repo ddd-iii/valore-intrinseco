@@ -8,7 +8,9 @@ import {
   svenCarlinIntrinsicValue, dcfValuation, relativeValuation,
   grahamValuation, lynchValuation, ownerEarnings,
   compositeIntrinsic, ratingFromUpside, marginOfSafetyLevels,
+  releverBeta, costOfEquity, computeWACC, damodaranFCFF3StageWeighted,
 } from "@/models/valuationEngine";
+import { DAMODARAN_SECTORS } from "@/services/damodaranIndustryData";
 
 /* ==========================================================================
  * COMPUTE HOOK — ricalcola TUTTI i modelli ad ogni cambio ipotesi (live)
@@ -33,15 +35,54 @@ function useValuations(data, a) {
     const lynch = lynchValuation({ eps: data.eps, epsGrowth: data.epsGrowth || a.dcf.growth, dividendYield: data.dividendYield });
     const oe = ownerEarnings({ netIncome: data.netIncome, depreciation: data.depreciation, capex: data.capex, shares: sh, discount: a.scenarios[0].discount, growth: a.ownerGrowth });
 
-    const composite = compositeIntrinsic(sven.intrinsicValue, rel.average);
+    // --- Damodaran FCFF a 3 stadi (#8) -------------------------------------
+    const dm = a.damodaran;
+    const equityValue = data.marketCap || sh * data.price;
+    const debtValue = data.debt || 0;
+    const de = equityValue > 0 ? debtValue / equityValue : 0;
+
+    let beta;
+    let sectorUnleveredBeta = null;
+    if (dm.betaMode === "manual") {
+      beta = dm.manualBeta;
+    } else {
+      const entry = DAMODARAN_SECTORS.find(s => s.sector === dm.sector);
+      sectorUnleveredBeta = entry ? entry.unleveredBeta : 1;
+      beta = releverBeta(sectorUnleveredBeta, de, a.taxRate);
+    }
+    const costOfDebtPreTax = dm.riskFreeRate + 0.015; // spread di credito indicativo
+    const costOfDebtAfterTax = costOfDebtPreTax * (1 - a.taxRate);
+
+    const ke1 = costOfEquity(dm.riskFreeRate, beta, dm.erp);
+    const wacc1 = computeWACC({ costOfEquityV: ke1, costOfDebtAfterTax, equityValue, debtValue });
+
+    const keStable = costOfEquity(dm.riskFreeRate, 1.0, dm.erp); // beta -> 1 (mercato) in stable growth
+    const waccStable = dm.waccStableOverride && dm.waccStableOverride > 0
+      ? dm.waccStableOverride
+      : computeWACC({ costOfEquityV: keStable, costOfDebtAfterTax, equityValue, debtValue });
+
+    const damodaran = damodaranFCFF3StageWeighted({
+      revenue0: data.revenue || 0,
+      currentMargin: dm.currentMargin, n1: dm.n1, n2: dm.n2,
+      taxRate: a.taxRate, wacc1, waccStable, riskFreeRate: dm.riskFreeRate,
+      roicStableOverride: dm.roicStableOverride, netDebt, shares: sh,
+    }, dm.scenarios, dm.probabilities);
+    damodaran.beta = beta;
+    damodaran.sectorUnleveredBeta = sectorUnleveredBeta;
+    damodaran.wacc1 = wacc1;
+    damodaran.waccStable = waccStable;
+    damodaran.costOfDebtAfterTax = costOfDebtAfterTax;
+
+    const composite = compositeIntrinsic(sven.intrinsicValue, rel.average, damodaran.valuePerShare);
     const price = data.price;
     const upside = isFinite(composite) && price ? (composite - price) / price : NaN;
     const rating = ratingFromUpside(upside);
     const mos = marginOfSafetyLevels(composite);
 
-    return { sven, dcf, rel, graham, lynch, oe, composite, price, upside, rating, mos, netDebt, fcfps, shares: sh };
+    return { sven, dcf, rel, graham, lynch, oe, damodaran, composite, price, upside, rating, mos, netDebt, fcfps, shares: sh };
   }, [data, a]);
 }
 
 
 export { useValuations };
+

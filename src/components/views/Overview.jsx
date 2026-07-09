@@ -17,6 +17,7 @@ function Overview() {
     ["Sven Carlin IV", val.sven.intrinsicValue], ["DCF (Gordon)", val.dcf.fairValue],
     ["Relative (avg)", val.rel.average], ["Graham revised", val.graham.revised],
     ["Peter Lynch", val.lynch.fairValue], ["Owner Earnings", val.oe.capitalized],
+    ["Damodaran FCFF", val.damodaran.valuePerShare],
   ];
   return (
     <div style={{ display: "grid", gap: 16 }}>

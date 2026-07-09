@@ -4,13 +4,51 @@
  * l'artifact originale usava window.storage, disponibile solo nel sandbox Claude).
  */
 import { createContext, useContext } from "react";
+import { DAMODARAN_SECTORS, findSector } from "@/services/damodaranIndustryData";
 
 const Ctx = createContext(null);
 const useStore = () => useContext(Ctx);
 
+/** Prova ad indovinare il settore Damodaran più vicino dal sector/industry dei dati fondamentali. */
+function guessDamodaranSector(data) {
+  const hay = `${data.sector || ""} ${data.industry || ""}`.toLowerCase();
+  if (!hay.trim()) return "Diversified / Conglomerate";
+  let best = null, bestScore = 0;
+  for (const s of DAMODARAN_SECTORS) {
+    const words = s.sector.toLowerCase().replace(/[()/]/g, " ").split(/\s+/).filter(w => w.length > 3);
+    const score = words.reduce((acc, w) => acc + (hay.includes(w) ? 1 : 0), 0);
+    if (score > bestScore) { bestScore = score; best = s.sector; }
+  }
+  return best || "Diversified / Conglomerate";
+}
+
+/**
+ * Costruisce i 3 scenari (Bull/Base/Bear) del modello Damodaran a partire dai
+ * default tipici del settore scelto — riutilizzabile anche dal pulsante
+ * "Applica default di settore" nella vista Damodaran DCF.
+ */
+function damodaranScenarioDefaults(sectorName, data) {
+  const sec = findSector(sectorName);
+  const g1Base = data.revenueGrowth && data.revenueGrowth > 0 && data.revenueGrowth < 0.5 ? data.revenueGrowth : 0.10;
+  const currentMargin = data.operatingMargin && data.operatingMargin > 0 ? data.operatingMargin : sec.typicalOperatingMargin * 0.75;
+  return {
+    currentMargin,
+    n1: 5,
+    n2: 5,
+    scenarios: [
+      { g1: Math.min(g1Base * 1.4 + 0.02, 0.5), targetMargin: Math.min(sec.typicalOperatingMargin * 1.15, 0.6), gStable: 0.025, salesToCapital: sec.typicalSalesToCapital * 1.15 }, // Bull
+      { g1: g1Base, targetMargin: sec.typicalOperatingMargin, gStable: 0.025, salesToCapital: sec.typicalSalesToCapital }, // Base
+      { g1: Math.max(g1Base * 0.5, 0), targetMargin: sec.typicalOperatingMargin * 0.85, gStable: 0.02, salesToCapital: sec.typicalSalesToCapital * 0.85 }, // Bear
+    ],
+    probabilities: [0.2, 0.6, 0.2],
+  };
+}
+
 // Ipotesi default = valori del foglio Excel Sven Carlin
 function defaultAssumptions(data) {
   const base = deriveBase(data, "fcfps");
+  const damSector = guessDamodaranSector(data);
+  const damDefaults = damodaranScenarioDefaults(damSector, data);
   return {
     baseMetric: "fcfps",
     base,
@@ -35,6 +73,21 @@ function defaultAssumptions(data) {
     aaaYield: 4.5,       // Graham denominatore
     ownerGrowth: 0.03,   // crescita owner earnings
     taxRate: 0.21,
+    // Damodaran FCFF a 3 stadi (#8) — 3 scenari Bull/Base/Bear pesati 0.2/0.6/0.2
+    damodaran: {
+      currentMargin: damDefaults.currentMargin,
+      n1: damDefaults.n1,
+      n2: damDefaults.n2,
+      scenarios: damDefaults.scenarios,
+      probabilities: damDefaults.probabilities,
+      riskFreeRate: 0.04,
+      erp: 0.047,
+      betaMode: "sector",       // "sector" (bottom-up) | "manual"
+      sector: damSector,
+      manualBeta: data.beta || 1.0,
+      waccStableOverride: null, // null = usa il WACC calcolato in stable growth
+      roicStableOverride: null, // null = usa waccStable (no rendimenti in eccesso)
+    },
   };
 }
 // Deriva il valore base per-azione dal metric scelto
@@ -97,4 +150,6 @@ export {
   reducer,
   loadStoredKeys,
   saveStoredKeys,
+  damodaranScenarioDefaults,
+  guessDamodaranSector,
 };

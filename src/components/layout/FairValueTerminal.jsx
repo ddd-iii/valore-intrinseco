@@ -5,7 +5,7 @@
  * -> inserimento manuale).
  */
 import { useReducer, useEffect, useCallback } from "react";
-import { LayoutDashboard, Scale, Target, Activity, Layers, DollarSign, BarChart3, Percent, Sliders, FileText, Sparkles, Settings as SettingsIcon } from "lucide-react";
+import { LayoutDashboard, Scale, Target, Activity, Layers, DollarSign, BarChart3, Percent, Sliders, FileText, Sparkles, GraduationCap, Settings as SettingsIcon } from "lucide-react";
 import { T, SANS } from "@/lib/theme";
 import { Ctx, initialState, reducer, loadStoredKeys } from "@/store/store";
 import { useValuations } from "@/hooks/useValuations";
@@ -22,6 +22,7 @@ export const NAV = [
   { id: "intrinsic", label: "Intrinsic Value", icon: Target },
   { id: "dcf", label: "DCF", icon: Activity },
   { id: "relative", label: "Relative", icon: Layers },
+  { id: "damodaran", label: "Damodaran DCF", icon: GraduationCap },
   { id: "financials", label: "Financials", icon: DollarSign },
   { id: "charts", label: "Charts", icon: BarChart3 },
   { id: "ratios", label: "Ratios", icon: Percent },

@@ -17,6 +17,7 @@ function Valuation() {
     ["Graham Number", val.graham.grahamNumber, "√(22.5·EPS·BVPS)"],
     ["Peter Lynch Fair Value", val.lynch.fairValue, `EPS · (growth% + yield%) = fair PE ${fmtNum(val.lynch.fairPE, 0)}`],
     ["Owner Earnings (capitalized)", val.oe.capitalized, "Buffett: (NI+D&A−CapEx)/share capitalizzato"],
+    ["Damodaran FCFF 3 stadi", val.damodaran.valuePerShare, "Bottom-up beta + FCFF 3 stadi con terminal ROIC≈WACC"],
   ];
   return (
     <div style={{ display: "grid", gap: 16 }}>
