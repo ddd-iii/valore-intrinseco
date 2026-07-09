@@ -1,0 +1,24 @@
+{
+  "name": "fair-value-terminal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Calcolo del fair value / valore intrinseco di azioni quotate — replica fedele del modello Excel di Sven Carlin + 6 modelli di valutazione aggiuntivi.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7",
+    "lucide-react": "^0.383.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.35"
+  }
+}
