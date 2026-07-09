@@ -2,7 +2,8 @@
 /**
  * SHARED UI PRIMITIVES — Panel, Stat, Row, Badge, Ctrl (slider).
  */
-import { T, MONO } from "@/lib/theme";
+import { T, MONO, SANS } from "@/lib/theme";
+import { fmtBig } from "@/services/formatters";
 
 /* ==========================================================================
  * SHARED UI PRIMITIVES

@@ -1,6 +1,9 @@
 /**
  * /services — AI ANALYSIS (rule-based, deterministico)
  */
+import { fmtNum } from "@/services/formatters";
+import { svenCarlinIntrinsicValue } from "@/models/valuationEngine";
+
 function generateAIAnalysis(ctx) {
   const { data, price, composite, upside, rating, sven, dcf, rel, assumptions } = ctx;
   const cur = data.currency || "USD";
