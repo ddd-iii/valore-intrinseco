@@ -50,7 +50,15 @@ function FairValueTerminal() {
     // 1) prova la catena provider (funziona con key gratuite)
     try {
       const data = await fetchCompany(tk, s.keys);
-      dispatch({ type: "LOADED", data, status: { live: true, source: data.source } });
+      dispatch({
+        type: "LOADED", data,
+        status: {
+          live: true, source: data.source, sourcesUsed: data.sourcesUsed,
+          note: data.missingCore
+            ? `Dati parziali: ${data.sourcesUsed?.join(" + ") || data.source} non forniscono ricavi e/o storico completi. Damodaran DCF, Financials e Charts potrebbero risultare vuoti o a zero — inserisci i dati mancanti in Assumptions/inserimento manuale, oppure prova un'altra API key.`
+            : undefined,
+        },
+      });
       return;
     } catch (e) {
       // 2) fallback: dati campione se disponibili
@@ -73,10 +81,10 @@ function FairValueTerminal() {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
           <TopBar />
           <div style={{ padding: "20px 26px", flex: 1 }}>
-            {!s.data && !s.loading && <Welcome />}
+            {!s.data && !s.loading && !s.manualOpen && <Welcome />}
             {s.loading && <LoadingState />}
             {s.manualOpen && <ManualEntry />}
-            {s.data && val && <Views />}
+            {!s.manualOpen && s.data && val && <Views />}
           </div>
         </div>
       </div>

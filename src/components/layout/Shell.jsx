@@ -45,7 +45,20 @@ function LoadingState() {
 }
 function ManualEntry() {
   const { state, dispatch } = useStore();
-  const [f, setF] = useState({ ticker: "", name: "", currency: "USD", price: "", shares: "", eps: "", bvps: "", revenue: "", netIncome: "", ebitda: "", ebit: "", fcf: "", operatingCashFlow: "", capex: "", depreciation: "", cash: "", debt: "", dividendYield: "", epsGrowth: "" });
+  const emptyF = { ticker: "", name: "", currency: "USD", price: "", shares: "", eps: "", bvps: "", revenue: "", netIncome: "", ebitda: "", ebit: "", fcf: "", operatingCashFlow: "", capex: "", depreciation: "", cash: "", debt: "", dividendYield: "", epsGrowth: "" };
+  const [f, setF] = useState(() => {
+    if (!state.data) return emptyF;
+    const d = state.data;
+    const toStr = (v) => (v === null || v === undefined || !isFinite(v)) ? "" : String(v);
+    return {
+      ticker: d.ticker || "", name: d.name || "", currency: d.currency || "USD",
+      price: toStr(d.price), shares: toStr(d.shares), eps: toStr(d.eps), bvps: toStr(d.bvps),
+      revenue: toStr(d.revenue), netIncome: toStr(d.netIncome), ebitda: toStr(d.ebitda), ebit: toStr(d.ebit),
+      fcf: toStr(d.fcf), operatingCashFlow: toStr(d.operatingCashFlow), capex: toStr(d.capex),
+      depreciation: toStr(d.depreciation), cash: toStr(d.cash), debt: toStr(d.debt),
+      dividendYield: toStr(d.dividendYield), epsGrowth: toStr(d.epsGrowth),
+    };
+  });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const fields = [["ticker", "Ticker *"], ["name", "Nome"], ["price", "Prezzo *"], ["shares", "Azioni (n)"], ["eps", "EPS"], ["bvps", "Book Value/share"], ["revenue", "Revenue"], ["netIncome", "Net Income"], ["ebitda", "EBITDA"], ["ebit", "EBIT"], ["fcf", "Free Cash Flow"], ["operatingCashFlow", "Operating CF"], ["capex", "CapEx"], ["depreciation", "D&A"], ["cash", "Cash"], ["debt", "Debt"], ["dividendYield", "Div Yield (0-1)"], ["epsGrowth", "EPS Growth (0-1)"]];
   const submit = () => {

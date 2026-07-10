@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Search, Zap, Database } from "lucide-react";
+import { Search, Zap, Database, SquarePen } from "lucide-react";
 import { T, MONO } from "@/lib/theme";
 import { useStore } from "@/store/store";
 import { Badge } from "../ui/Primitives";
@@ -44,6 +44,11 @@ function TopBar() {
             <span style={{ fontSize: 10.5, color: state.dataStatus.live ? T.green : T.amber, fontFamily: MONO, display: "flex", alignItems: "center", gap: 5 }}>
               {state.dataStatus.live ? <Zap size={12} /> : <Database size={12} />}{state.dataStatus.source}
             </span>
+          )}
+          {d && (
+            <button onClick={() => dispatch({ type: "MANUAL", open: true })} style={chip()} title="Correggi o completa i dati fondamentali mancanti">
+              <SquarePen size={11} style={{ marginRight: 4, verticalAlign: -2 }} />Modifica dati
+            </button>
           )}
         </div>
       </div>

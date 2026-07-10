@@ -98,6 +98,15 @@ function DamodaranView() {
         Excel specifico. Beta bottom-up da dataset di settore illustrativo (nota in fondo alla vista).
       </div>
 
+      {(!d.revenue || d.revenue <= 0) && (
+        <div style={{ background: "rgba(239,75,91,.08)", border: `1px solid ${T.redDim}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: T.red, display: "flex", gap: 8, alignItems: "center" }}>
+          <AlertTriangle size={15} />
+          Ricavi (revenue) non disponibili dal provider dati attuale — questo modello è basato su FCFF a
+          partire dai ricavi, quindi il fair value resta a zero. Usa "Modifica dati" (in alto) per
+          inserire il valore dei ricavi e ricalcolare.
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <Panel title="Costo del capitale" subtitle="Beta bottom-up (settore rilevereggiato) o manuale">
           <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
