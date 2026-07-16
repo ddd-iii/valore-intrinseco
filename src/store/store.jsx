@@ -117,6 +117,17 @@ function reducer(s, a) {
     case "ERROR": return { ...s, loading: false, error: a.error };
     case "VIEW": return { ...s, view: a.view };
     case "ASSUME": return { ...s, assumptions: a.updater(s.assumptions) };
+    case "PATCH_DATA": {
+      const data = { ...s.data, [a.key]: a.value };
+      let assumptions = s.assumptions;
+      // Se cambiano ricavi o EBIT, ricalcola il margine operativo "attuale" del
+      // modello Damodaran (EBIT/ricavi) così il fair value resta coerente.
+      if ((a.key === "revenue" || a.key === "ebit") && data.revenue && data.ebit && data.revenue > 0) {
+        const currentMargin = data.ebit / data.revenue;
+        assumptions = { ...s.assumptions, damodaran: { ...s.assumptions.damodaran, currentMargin } };
+      }
+      return { ...s, data, assumptions };
+    }
     case "KEYS": return { ...s, keys: { ...s.keys, ...a.keys } };
     case "MANUAL": return { ...s, manualOpen: a.open };
     default: return s;

@@ -10,6 +10,7 @@ import { Panel, Ctrl, TT } from "../ui/Primitives";
 import { btnGhost } from "../ui/styleHelpers";
 import { fmtNum, fmtBig, fmtPct } from "@/services/formatters";
 import { DAMODARAN_SECTORS, DAMODARAN_META } from "@/services/damodaranIndustryData";
+import { TradingViewWidget, toTradingViewSymbol } from "../charts/TradingViewWidget";
 
 const SCENARIO_LABELS = ["Bull", "Base", "Bear"];
 
@@ -106,6 +107,61 @@ function DamodaranView() {
           inserire il valore dei ricavi e ricalcolare.
         </div>
       )}
+
+      <Panel
+        title="Dati fondamentali live — TradingView"
+        subtitle={`Sorgente di riferimento per ${d.name || d.ticker}. Leggi ricavi, margine operativo, EBIT e debito qui sotto e copiali a mano nei campi del modello. I dati provengono in live da TradingView e non sono usati automaticamente nei calcoli.`}
+      >
+        <TradingViewWidget
+          scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-financials.js"
+          symbol={toTradingViewSymbol(d)}
+          height={460}
+          config={{
+            colorTheme: "dark",
+            isTransparent: true,
+            largeChartUrl: "",
+            displayMode: "adaptive",
+            width: "100%",
+            height: "100%",
+            locale: "it",
+          }}
+        />
+        <div style={{ fontSize: 10.5, color: T.muted, marginTop: 8 }}>
+          Simbolo TradingView: <span style={{ fontFamily: MONO, color: T.sub }}>{toTradingViewSymbol(d)}</span>.
+          Se il simbolo non corrisponde alla borsa giusta, cerca il ticker completo (es. <span style={{ fontFamily: MONO }}>NASDAQ:AAPL</span>) e correggi i valori a mano.
+        </div>
+
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+          <div style={{ fontSize: 12, color: T.sub, marginBottom: 10, fontWeight: 600 }}>
+            Copia qui i valori letti dal widget (alimentano direttamente il modello):
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+            {[
+              ["revenue", "Ricavi (Total Revenue)", "es. 391000000000"],
+              ["ebit", "EBIT / Operating Income", "es. 123000000000"],
+              ["debt", "Debito totale (Total Debt)", "es. 106000000000"],
+              ["cash", "Cassa (Cash & Equivalents)", "es. 30000000000"],
+            ].map(([key, label, ph]) => (
+              <div key={key}>
+                <div style={{ fontSize: 11, color: T.sub, marginBottom: 4 }}>{label}</div>
+                <input
+                  type="number"
+                  defaultValue={d[key] != null && isFinite(d[key]) ? d[key] : ""}
+                  placeholder={ph}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? null : parseFloat(e.target.value);
+                    dispatch({ type: "PATCH_DATA", key, value: v });
+                  }}
+                  style={{ width: "100%", background: T.panel2, border: `1px solid ${T.border}`, borderRadius: 7, padding: "8px 10px", color: T.text, fontSize: 12.5, fontFamily: MONO, outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10.5, color: T.muted, marginTop: 8 }}>
+            Suggerimento: TradingView mostra spesso i valori in forma abbreviata (es. "391.04B"). Inserisci il numero per esteso (391040000000) oppure usa "Modifica dati" in alto per il set completo di campi.
+          </div>
+        </div>
+      </Panel>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <Panel title="Costo del capitale" subtitle="Beta bottom-up (settore rilevereggiato) o manuale">
