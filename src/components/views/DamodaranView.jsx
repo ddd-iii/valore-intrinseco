@@ -112,26 +112,32 @@ function DamodaranView() {
         title="Dati fondamentali live — TradingView"
         subtitle={`Sorgente di riferimento per ${d.name || d.ticker}. Leggi ricavi, margine operativo, EBIT e debito qui sotto e copiali a mano nei campi del modello. I dati provengono in live da TradingView e non sono usati automaticamente nei calcoli.`}
       >
+        <div style={{ fontSize: 11.5, color: T.sub, marginBottom: 10, display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <AlertTriangle size={13} color={T.amber} style={{ marginTop: 1, flexShrink: 0 }} />
+          Il widget si apre sulla scheda "Balance Sheet". Ricavi ed EBIT sono nella scheda
+          <strong style={{ color: T.text }}> "Income Statement"</strong>, debito e cassa in
+          <strong style={{ color: T.text }}> "Balance Sheet"</strong> — usa le schede in alto nel widget per passare dall'una all'altra.
+        </div>
         <TradingViewWidget
           scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-financials.js"
           symbol={toTradingViewSymbol(d)}
-          height={460}
+          height={600}
           config={{
             colorTheme: "dark",
             isTransparent: true,
             largeChartUrl: "",
-            displayMode: "adaptive",
+            displayMode: "regular",
             width: "100%",
             height: "100%",
-            locale: "it",
+            locale: "en",
           }}
         />
-        <div style={{ fontSize: 10.5, color: T.muted, marginTop: 8 }}>
+        <div style={{ fontSize: 10.5, color: T.muted, marginTop: 10 }}>
           Simbolo TradingView: <span style={{ fontFamily: MONO, color: T.sub }}>{toTradingViewSymbol(d)}</span>.
           Se il simbolo non corrisponde alla borsa giusta, cerca il ticker completo (es. <span style={{ fontFamily: MONO }}>NASDAQ:AAPL</span>) e correggi i valori a mano.
         </div>
 
-        <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+        <div style={{ marginTop: 28, paddingTop: 20, borderTop: `1px solid ${T.border}` }}>
           {(() => {
             const FIELDS = [
               ["revenue", "Ricavi (Total Revenue)", "es. 391000000000"],

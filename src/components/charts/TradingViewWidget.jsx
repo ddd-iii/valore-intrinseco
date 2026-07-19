@@ -40,7 +40,7 @@ function toTradingViewSymbol(data) {
  * accessibili via codice (sandbox iframe cross-origin) — servono all'utente
  * come riferimento da leggere/copiare a mano nei campi del modello.
  */
-function TradingViewWidget({ scriptSrc, config, symbol, height = 400 }) {
+function TradingViewWidget({ scriptSrc, config, symbol, height = 500 }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -51,6 +51,12 @@ function TradingViewWidget({ scriptSrc, config, symbol, height = 400 }) {
     container.innerHTML = "";
     const widgetHost = document.createElement("div");
     widgetHost.className = "tradingview-widget-container__widget";
+    // Altezza/larghezza esplicite in linea: senza il foglio di stile ufficiale
+    // di TradingView (che non carichiamo), la classe da sola non basta a far
+    // riempire il contenitore e l'iframe iniettato può eccedere in altezza,
+    // sovrapponendosi al contenuto sottostante.
+    widgetHost.style.height = "100%";
+    widgetHost.style.width = "100%";
     container.appendChild(widgetHost);
 
     // React non esegue gli script iniettati via innerHTML: creo un vero nodo <script>
@@ -65,7 +71,17 @@ function TradingViewWidget({ scriptSrc, config, symbol, height = 400 }) {
   }, [scriptSrc, symbol, JSON.stringify(config)]);
 
   return (
-    <div className="tradingview-widget-container" ref={containerRef} style={{ height, width: "100%" }} />
+    <div
+      className="tradingview-widget-container"
+      ref={containerRef}
+      style={{
+        height, width: "100%",
+        // Clip rigido: qualsiasi overflow dell'iframe TradingView resta
+        // dentro questo box invece di sovrapporsi al contenuto sotto.
+        overflow: "hidden", position: "relative",
+        borderRadius: 10,
+      }}
+    />
   );
 }
 

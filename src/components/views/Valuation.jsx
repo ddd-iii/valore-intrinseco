@@ -112,14 +112,20 @@ function OwnerEarningsDataPanel() {
       title="Owner Earnings (Buffett) — dati e completamento"
       subtitle={`Serve utile netto, ammortamenti e capex per calcolarlo. Sorgente di riferimento: TradingView per ${d.name || d.ticker}.`}
     >
+      <div style={{ fontSize: 11.5, color: T.sub, marginBottom: 10, display: "flex", gap: 8, alignItems: "flex-start" }}>
+        <AlertTriangle size={13} color={T.amber} style={{ marginTop: 1, flexShrink: 0 }} />
+        Il widget si apre sulla scheda "Balance Sheet". Utile netto è nella scheda
+        <strong style={{ color: T.text }}> "Income Statement"</strong>, ammortamenti e capex nella scheda
+        <strong style={{ color: T.text }}> "Cash Flow"</strong> — usa le schede in alto nel widget per passare dall'una all'altra.
+      </div>
       <TradingViewWidget
         scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-financials.js"
         symbol={toTradingViewSymbol(d)}
-        height={380}
-        config={{ colorTheme: "dark", isTransparent: true, largeChartUrl: "", displayMode: "adaptive", width: "100%", height: "100%", locale: "it" }}
+        height={600}
+        config={{ colorTheme: "dark", isTransparent: true, largeChartUrl: "", displayMode: "regular", width: "100%", height: "100%", locale: "en" }}
       />
 
-      <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+      <div style={{ marginTop: 28, paddingTop: 20, borderTop: `1px solid ${T.border}` }}>
         {!missing.length ? (
           <div style={{ fontSize: 12, color: T.green }}>✓ Tutti i dati necessari (utile netto, ammortamenti, capex) sono presenti.</div>
         ) : (
