@@ -73,13 +73,23 @@ function useValuations(data, a) {
     damodaran.waccStable = waccStable;
     damodaran.costOfDebtAfterTax = costOfDebtAfterTax;
 
-    const composite = compositeIntrinsic(sven.intrinsicValue, rel.average, damodaran.valuePerShare);
+    // Composito base = Sven Carlin + Relative (sempre). Damodaran e Owner
+    // Earnings entrano SOLO se l'utente li abilita esplicitamente (toggle) E
+    // il valore calcolato è valido (altrimenti un modello a zero per dati
+    // mancanti abbasserebbe artificialmente la media).
+    const damodaranValid = isFinite(damodaran.valuePerShare) && damodaran.valuePerShare > 0;
+    const oeValid = isFinite(oe.capitalized) && oe.capitalized > 0;
+    const includeC = a.includeInComposite || { damodaran: false, ownerEarnings: false };
+    const compositeExtras = [];
+    if (includeC.damodaran && damodaranValid) compositeExtras.push(damodaran.valuePerShare);
+    if (includeC.ownerEarnings && oeValid) compositeExtras.push(oe.capitalized);
+    const composite = compositeIntrinsic(sven.intrinsicValue, rel.average, ...compositeExtras);
     const price = data.price;
     const upside = isFinite(composite) && price ? (composite - price) / price : NaN;
     const rating = ratingFromUpside(upside);
     const mos = marginOfSafetyLevels(composite);
 
-    return { sven, dcf, rel, graham, lynch, oe, damodaran, composite, price, upside, rating, mos, netDebt, fcfps, shares: sh };
+    return { sven, dcf, rel, graham, lynch, oe, damodaran, composite, price, upside, rating, mos, netDebt, fcfps, shares: sh, damodaranValid, oeValid };
   }, [data, a]);
 }
 

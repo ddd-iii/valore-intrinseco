@@ -73,6 +73,9 @@ function defaultAssumptions(data) {
     aaaYield: 4.5,       // Graham denominatore
     ownerGrowth: 0.03,   // crescita owner earnings
     taxRate: 0.21,
+    // Toggle: includi Damodaran e/o Owner Earnings nella media del Fair Value
+    // Composito SOLO se abilitati esplicitamente qui (default: esclusi).
+    includeInComposite: { damodaran: false, ownerEarnings: false },
     // Damodaran FCFF a 3 stadi (#8) — 3 scenari Bull/Base/Bear pesati 0.2/0.6/0.2
     damodaran: {
       currentMargin: damDefaults.currentMargin,

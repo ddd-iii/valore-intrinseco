@@ -132,36 +132,65 @@ function DamodaranView() {
         </div>
 
         <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
-          <div style={{ fontSize: 12, color: T.sub, marginBottom: 10, fontWeight: 600 }}>
-            Copia qui i valori letti dal widget (alimentano direttamente il modello):
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-            {[
+          {(() => {
+            const FIELDS = [
               ["revenue", "Ricavi (Total Revenue)", "es. 391000000000"],
               ["ebit", "EBIT / Operating Income", "es. 123000000000"],
               ["debt", "Debito totale (Total Debt)", "es. 106000000000"],
               ["cash", "Cassa (Cash & Equivalents)", "es. 30000000000"],
-            ].map(([key, label, ph]) => (
-              <div key={key}>
-                <div style={{ fontSize: 11, color: T.sub, marginBottom: 4 }}>{label}</div>
-                <input
-                  type="number"
-                  defaultValue={d[key] != null && isFinite(d[key]) ? d[key] : ""}
-                  placeholder={ph}
-                  onChange={(e) => {
-                    const v = e.target.value === "" ? null : parseFloat(e.target.value);
-                    dispatch({ type: "PATCH_DATA", key, value: v });
-                  }}
-                  style={{ width: "100%", background: T.panel2, border: `1px solid ${T.border}`, borderRadius: 7, padding: "8px 10px", color: T.text, fontSize: 12.5, fontFamily: MONO, outline: "none", boxSizing: "border-box" }}
-                />
-              </div>
-            ))}
-          </div>
-          <div style={{ fontSize: 10.5, color: T.muted, marginTop: 8 }}>
-            Suggerimento: TradingView mostra spesso i valori in forma abbreviata (es. "391.04B"). Inserisci il numero per esteso (391040000000) oppure usa "Modifica dati" in alto per il set completo di campi.
-          </div>
+            ];
+            const isMissing = (v) => v === undefined || v === null || !isFinite(v);
+            const missing = FIELDS.filter(([key]) => isMissing(d[key]));
+            if (!missing.length) {
+              return (
+                <div style={{ fontSize: 12, color: T.green }}>
+                  ✓ Tutti i dati necessari (ricavi, EBIT, debito, cassa) sono presenti.
+                </div>
+              );
+            }
+            return (
+              <>
+                <div style={{ fontSize: 12, color: T.sub, marginBottom: 10, fontWeight: 600 }}>
+                  Dati mancanti — copiali qui dal widget qui sopra (alimentano direttamente il modello):
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+                  {missing.map(([key, label, ph]) => (
+                    <div key={key}>
+                      <div style={{ fontSize: 11, color: T.sub, marginBottom: 4 }}>{label}</div>
+                      <input
+                        type="number"
+                        placeholder={ph}
+                        onChange={(e) => {
+                          const v = e.target.value === "" ? null : parseFloat(e.target.value);
+                          dispatch({ type: "PATCH_DATA", key, value: v });
+                        }}
+                        style={{ width: "100%", background: T.panel2, border: `1px solid ${T.border}`, borderRadius: 7, padding: "8px 10px", color: T.text, fontSize: 12.5, fontFamily: MONO, outline: "none", boxSizing: "border-box" }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 10.5, color: T.muted, marginTop: 8 }}>
+                  Suggerimento: TradingView mostra spesso i valori in forma abbreviata (es. "391.04B"). Inserisci il numero per esteso (391040000000).
+                </div>
+              </>
+            );
+          })()}
         </div>
       </Panel>
+
+      <div style={{ background: a.includeInComposite?.damodaran ? "rgba(34,199,118,.08)" : "rgba(255,255,255,.03)", border: `1px solid ${a.includeInComposite?.damodaran ? T.greenDim : T.border}`, borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ fontSize: 12, color: T.sub }}>
+          Includi il fair value Damodaran nella <strong style={{ color: T.text }}>media del Fair Value Composito</strong> (oggi: Sven Carlin + Relative Valuation).
+          {!val.damodaranValid && <span style={{ color: T.amber }}> Disabilitato: il valore calcolato non è ancora valido (mancano dati o è zero).</span>}
+        </div>
+        <button
+          disabled={!val.damodaranValid}
+          onClick={() => dispatch({ type: "ASSUME", updater: (as) => ({ ...as, includeInComposite: { ...as.includeInComposite, damodaran: !as.includeInComposite.damodaran } }) })}
+          style={{ ...btnGhost(), opacity: val.damodaranValid ? 1 : 0.4, cursor: val.damodaranValid ? "pointer" : "not-allowed", borderColor: a.includeInComposite?.damodaran ? T.green : T.border, color: a.includeInComposite?.damodaran ? T.green : T.sub, flexShrink: 0 }}
+        >
+          {a.includeInComposite?.damodaran ? "✓ Incluso nella media" : "Aggiungi alla media"}
+        </button>
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <Panel title="Costo del capitale" subtitle="Beta bottom-up (settore rilevereggiato) o manuale">
