@@ -40,7 +40,7 @@ function toTradingViewSymbol(data) {
  * accessibili via codice (sandbox iframe cross-origin) — servono all'utente
  * come riferimento da leggere/copiare a mano nei campi del modello.
  */
-function TradingViewWidget({ scriptSrc, config, symbol, height = 500 }) {
+function TradingViewWidget({ scriptSrc, config, symbol, height = 500, minWidth = 600 }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -71,17 +71,23 @@ function TradingViewWidget({ scriptSrc, config, symbol, height = 500 }) {
   }, [scriptSrc, symbol, JSON.stringify(config)]);
 
   return (
-    <div
-      className="tradingview-widget-container"
-      ref={containerRef}
-      style={{
-        height, width: "100%",
-        // Clip rigido: qualsiasi overflow dell'iframe TradingView resta
-        // dentro questo box invece di sovrapporsi al contenuto sotto.
-        overflow: "hidden", position: "relative",
-        borderRadius: 10,
-      }}
-    />
+    // Sfondo bianco pieno: i widget TradingView in tema "light" (il più
+    // testato/compatibile per la visibilità di schede e testo) presuppongono
+    // un fondo chiaro pieno — su sfondo scuro trasparente le schede secondarie
+    // possono risultare a contrasto troppo basso per essere visibili.
+    <div style={{ background: "#ffffff", borderRadius: 10, padding: 4 }}>
+      <div
+        className="tradingview-widget-container"
+        ref={containerRef}
+        style={{
+          height, width: "100%", minWidth,
+          // Clip rigido: qualsiasi overflow dell'iframe TradingView resta
+          // dentro questo box invece di sovrapporsi al contenuto sotto.
+          overflow: "hidden", position: "relative",
+          borderRadius: 8,
+        }}
+      />
+    </div>
   );
 }
 

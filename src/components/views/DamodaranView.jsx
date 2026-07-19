@@ -121,12 +121,13 @@ function DamodaranView() {
         <TradingViewWidget
           scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-financials.js"
           symbol={toTradingViewSymbol(d)}
-          height={600}
+          height={750}
+          minWidth={620}
           config={{
-            colorTheme: "dark",
-            isTransparent: true,
+            colorTheme: "light",
+            isTransparent: false,
             largeChartUrl: "",
-            displayMode: "regular",
+            displayMode: "adaptive",
             width: "100%",
             height: "100%",
             locale: "en",
@@ -145,38 +146,43 @@ function DamodaranView() {
               ["debt", "Debito totale (Total Debt)", "es. 106000000000"],
               ["cash", "Cassa (Cash & Equivalents)", "es. 30000000000"],
             ];
-            const isMissing = (v) => v === undefined || v === null || !isFinite(v);
-            const missing = FIELDS.filter(([key]) => isMissing(d[key]));
-            if (!missing.length) {
-              return (
-                <div style={{ fontSize: 12, color: T.green }}>
-                  ✓ Tutti i dati necessari (ricavi, EBIT, debito, cassa) sono presenti.
-                </div>
-              );
-            }
+            const isNullish = (v) => v === undefined || v === null || !isFinite(v);
+            const missingCount = FIELDS.filter(([key]) => isNullish(d[key])).length;
             return (
               <>
                 <div style={{ fontSize: 12, color: T.sub, marginBottom: 10, fontWeight: 600 }}>
-                  Dati mancanti — copiali qui dal widget qui sopra (alimentano direttamente il modello):
+                  {missingCount === 0
+                    ? "✓ Tutti i dati sono presenti — puoi comunque correggerli qui se non sono corretti:"
+                    : "Copia qui i valori dal widget qui sopra (alimentano direttamente il modello):"}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-                  {missing.map(([key, label, ph]) => (
-                    <div key={key}>
-                      <div style={{ fontSize: 11, color: T.sub, marginBottom: 4 }}>{label}</div>
-                      <input
-                        type="number"
-                        placeholder={ph}
-                        onChange={(e) => {
-                          const v = e.target.value === "" ? null : parseFloat(e.target.value);
-                          dispatch({ type: "PATCH_DATA", key, value: v });
-                        }}
-                        style={{ width: "100%", background: T.panel2, border: `1px solid ${T.border}`, borderRadius: 7, padding: "8px 10px", color: T.text, fontSize: 12.5, fontFamily: MONO, outline: "none", boxSizing: "border-box" }}
-                      />
-                    </div>
-                  ))}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+                  {FIELDS.map(([key, label, ph]) => {
+                    const nullish = isNullish(d[key]);
+                    const isZero = !nullish && d[key] === 0;
+                    const dotColor = nullish ? T.red : (isZero ? T.amber : T.green);
+                    return (
+                      <div key={key}>
+                        <div style={{ fontSize: 11, color: T.sub, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: dotColor, flexShrink: 0 }} title={nullish ? "Mancante" : (isZero ? "Presente ma zero — verifica" : "Presente")} />
+                          {label}
+                        </div>
+                        <input
+                          key={`${key}-${d[key] ?? "empty"}`}
+                          type="number"
+                          defaultValue={nullish ? "" : d[key]}
+                          placeholder={ph}
+                          onChange={(e) => {
+                            const v = e.target.value === "" ? null : parseFloat(e.target.value);
+                            dispatch({ type: "PATCH_DATA", key, value: v });
+                          }}
+                          style={{ width: "100%", background: T.panel2, border: `1px solid ${nullish ? T.redDim : T.border}`, borderRadius: 7, padding: "9px 10px", color: T.text, fontSize: 12.5, fontFamily: MONO, outline: "none", boxSizing: "border-box" }}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
-                <div style={{ fontSize: 10.5, color: T.muted, marginTop: 8 }}>
-                  Suggerimento: TradingView mostra spesso i valori in forma abbreviata (es. "391.04B"). Inserisci il numero per esteso (391040000000).
+                <div style={{ fontSize: 10.5, color: T.muted, marginTop: 10 }}>
+                  Suggerimento: TradingView mostra spesso i valori in forma abbreviata (es. "391.04B"). Inserisci il numero per esteso (391040000000). Pallino giallo = valore presente ma zero: verifica se è corretto o se in realtà manca.
                 </div>
               </>
             );
