@@ -29,10 +29,10 @@ function useValuations(data, a) {
     });
     const rel = relativeValuation({
       eps: data.eps, bvps: data.bvps, revenue: data.revenue, ebitda: data.ebitda,
-      ebit: data.ebit, fcfps, epsGrowth: data.epsGrowth || a.dcf.growth, shares: sh, netDebt,
+      ebit: data.ebit, fcfps, epsGrowth: a.dcf.growth, shares: sh, netDebt,
     }, a.targets);
-    const graham = grahamValuation({ eps: data.eps, epsGrowth: data.epsGrowth || a.dcf.growth, bvps: data.bvps, aaaYield: a.aaaYield });
-    const lynch = lynchValuation({ eps: data.eps, epsGrowth: data.epsGrowth || a.dcf.growth, dividendYield: data.dividendYield });
+    const graham = grahamValuation({ eps: data.eps, epsGrowth: a.dcf.growth, bvps: data.bvps, aaaYield: a.aaaYield });
+    const lynch = lynchValuation({ eps: data.eps, epsGrowth: a.dcf.growth, dividendYield: data.dividendYield });
     const oe = ownerEarnings({ netIncome: data.netIncome, depreciation: data.depreciation, capex: data.capex, shares: sh, discount: a.scenarios[0].discount, growth: a.ownerGrowth });
 
     // --- Damodaran FCFF a 3 stadi (#8) -------------------------------------

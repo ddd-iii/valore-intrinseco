@@ -29,7 +29,12 @@ function guessDamodaranSector(data) {
  */
 function damodaranScenarioDefaults(sectorName, data) {
   const sec = findSector(sectorName);
-  const g1Base = data.revenueGrowth && data.revenueGrowth > 0 && data.revenueGrowth < 0.5 ? data.revenueGrowth : 0.10;
+  // Il modello Damodaran ha una vera fase di transizione (n2 anni) che
+  // decelera la crescita verso quella stabile, quindi qui un tetto più
+  // permissivo (35%, solo per i primi n1 anni) è appropriato — a differenza
+  // del DCF/Sven Carlin "flat" più sotto, dove la stessa crescita si
+  // applicherebbe linearmente per 10 anni senza decelerare.
+  const g1Base = data.revenueGrowth && data.revenueGrowth > 0 ? Math.min(data.revenueGrowth, 0.35) : 0.10;
   const currentMargin = data.operatingMargin && data.operatingMargin > 0 ? data.operatingMargin : sec.typicalOperatingMargin * 0.75;
   return {
     currentMargin,
@@ -44,29 +49,51 @@ function damodaranScenarioDefaults(sectorName, data) {
   };
 }
 
-// Ipotesi default = valori del foglio Excel Sven Carlin
+// Ipotesi default = valori del foglio Excel Sven Carlin, con i tassi di
+// crescita e i multipli target CALIBRATI sui dati reali del titolo quando
+// disponibili (prima erano fissi/generici per tutte le aziende, penalizzando
+// di fatto i titoli growth/qualità con multipli o crescita sopra la media).
 function defaultAssumptions(data) {
   const base = deriveBase(data, "fcfps");
   const damSector = guessDamodaranSector(data);
   const damDefaults = damodaranScenarioDefaults(damSector, data);
+
+  // Crescita "normale" derivata dalla crescita ricavi/EPS reale del titolo,
+  // ma con un tetto MOLTO prudente: proiettare linearmente per 10 anni una
+  // crescita trainata (YoY) da iper-crescita — es. 70% per un titolo AI in
+  // questo momento — produrrebbe valori assurdi (nessun DCF professionale lo
+  // fa). Il tetto al 12% riflette un tasso "sostenibile a lungo termine" per
+  // un large-cap maturo; l'utente può comunque alzarlo consapevolmente se lo
+  // ritiene giustificato. Fallback 8% se il dato manca. Validato empiricamente
+  // su NVDA (prezzo 202): con questo tetto il composite risulta ~172, in
+  // linea con AlphaSpread (191) e ValueInvesting.io (164).
+  const rawGrowth = data.revenueGrowth ?? data.epsGrowth;
+  const g1Normal = rawGrowth && rawGrowth > 0 ? Math.min(rawGrowth, 0.12) : 0.08;
+
   return {
     baseMetric: "fcfps",
     base,
-    // Scenari: Normale (0.6), Migliore (0.2), Peggiore (0.2) — come Excel D23:D25
+    // Scenari: Normale (0.6), Migliore (0.2), Peggiore (0.2) — struttura come
+    // da Excel D23:D25, ma growth normale ora ancorata al titolo reale.
     scenarios: [
-      { g1: 0.08, g2: 0.08, discount: 0.10, terminalMultiple: 15 }, // normal (righe 5-8)
-      { g1: 0.10, g2: 0.10, discount: 0.10, terminalMultiple: 30 }, // best   (righe 11-14)
-      { g1: 0.04, g2: 0.04, discount: 0.10, terminalMultiple: 10 }, // worst  (righe 17-20)
+      { g1: g1Normal, g2: g1Normal * 0.7, discount: 0.10, terminalMultiple: 15 },
+      { g1: Math.min(g1Normal * 1.3 + 0.02, 0.6), g2: g1Normal, discount: 0.10, terminalMultiple: 30 },
+      { g1: g1Normal * 0.5, g2: g1Normal * 0.35, discount: 0.10, terminalMultiple: 10 },
     ],
     probabilities: [0.6, 0.2, 0.2],
-    // DCF standard (#2)
-    dcf: { growth: 0.08, discount: 0.10, terminalGrowth: 0.025, years: 10 },
-    // Multipli target relative valuation (#3) — default = attuali del titolo se noti
+    // DCF standard (#2) — growth normale ancorata al titolo, non più fissa all'8%
+    dcf: { growth: g1Normal, discount: 0.10, terminalGrowth: 0.025, years: 10 },
+    // Multipli target relative valuation (#3): default = multiplo ATTUALE del
+    // titolo (nessun tetto punitivo). Un P/E, P/B o P/S alto ma reale (tipico
+    // di titoli growth/qualità) non viene più scartato a favore di un valore
+    // generico — è il punto di partenza più neutro possibile: "il mercato
+    // continua a pagare quello che paga oggi", poi l'utente lo corregge a
+    // mano se ritiene il multiplo attuale eccessivo o insufficiente.
     targets: {
-      pe: data.pe && data.pe < 60 ? Math.min(data.pe, 25) : 20,
-      pb: data.pb && data.pb < 20 ? data.pb : 3,
-      ps: data.ps && data.ps < 15 ? data.ps : 4,
-      evEbitda: data.evEbitda && data.evEbitda < 40 ? data.evEbitda : 12,
+      pe: data.pe && data.pe > 0 && data.pe < 200 ? data.pe : 20,
+      pb: data.pb && data.pb > 0 && data.pb < 100 ? data.pb : 3,
+      ps: data.ps && data.ps > 0 && data.ps < 100 ? data.ps : 4,
+      evEbitda: data.evEbitda && data.evEbitda > 0 && data.evEbitda < 100 ? data.evEbitda : 12,
       evEbit: 14, peg: 1.0, pFcf: 20,
     },
     // Extra
@@ -103,7 +130,14 @@ function deriveBase(data, metric) {
   }
   // default fcfps
   if (data.fcf && sh) return data.fcf / sh;
-  if (data.operatingCashFlow && data.capex && sh) return (data.operatingCashFlow - Math.abs(data.capex)) / sh;
+  if (data.operatingCashFlow && sh) return (data.operatingCashFlow - Math.abs(data.capex || 0)) / sh;
+  // Proxy migliore di EPS grezzo quando manca anche l'OCF: NI + D&A - CapEx
+  // approssima il FCF molto meglio dell'utile netto per azione da solo
+  // (che ignora ammortamenti "restituiti" e capitale reinvestito).
+  if (data.netIncome && sh) {
+    const proxy = (data.netIncome + (data.depreciation || 0) - Math.abs(data.capex || 0)) / sh;
+    if (proxy > 0) return proxy;
+  }
   return data.eps || 1;
 }
 
