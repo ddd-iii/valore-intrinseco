@@ -14,6 +14,22 @@
 const num = (x) => { const n = parseFloat(x); return isFinite(n) ? n : null; };
 const arr = (x) => Array.isArray(x) ? x : [];
 
+/**
+ * Alcuni provider (in particolare Finnhub, a seconda dell'endpoint) restituiscono
+ * il dividend yield come punti percentuali (es. 0.48 per "0.48%") invece che
+ * come frazione decimale (0.0048). Un vero dividend yield reale non supera
+ * praticamente mai il 25% (anche nei rari casi di rendimenti da titoli in forte
+ * stress prima di un taglio della cedola): se il valore grezzo, interpretato
+ * come frazione decimale, implicherebbe un rendimento sopra il 25% (es. 0.48
+ * → 48%), è quasi certamente in punti percentuali e va diviso per 100. Senza
+ * questa normalizzazione, formule come Peter Lynch (fairPE = growth% + yield%)
+ * ricevono uno yield fino a 100x più grande del reale, gonfiando il risultato.
+ */
+function normalizeYield(v) {
+  if (v === null || v === undefined || !isFinite(v)) return v;
+  return Math.abs(v) > 0.25 ? v / 100 : v;
+}
+
 // ---- Alpha Vantage (CORS ok con key gratuita) ------------------------------
 // Limite gratuito: 5 richieste/minuto, 25/giorno — molto facile da esaurire
 // con le 5 chiamate parallele qui sotto. Ogni chiamata è isolata: se una va
@@ -70,7 +86,7 @@ async function fetchAlphaVantage(ticker, key) {
     evEbitda: num(ov.EVToEBITDA), roe: num(ov.ReturnOnEquityTTM),
     roa: num(ov.ReturnOnAssetsTTM), grossMargin: num(ov.GrossProfitTTM),
     operatingMargin: num(ov.OperatingMarginTTM), netMargin: num(ov.ProfitMargin),
-    dividendYield: num(ov.DividendYield), beta: num(ov.Beta),
+    dividendYield: normalizeYield(num(ov.DividendYield)), beta: num(ov.Beta),
     week52High: num(ov["52WeekHigh"]), week52Low: num(ov["52WeekLow"]),
     epsGrowth: num(ov.QuarterlyEarningsGrowthYOY),
     revenueGrowth: num(ov.QuarterlyRevenueGrowthYOY),
@@ -125,7 +141,7 @@ async function fetchFMP(ticker, key) {
     pe: r.peRatioTTM, pb: r.priceToBookRatioTTM, ps: r.priceToSalesRatioTTM,
     pegRatio: r.pegRatioTTM, roe: r.returnOnEquityTTM, roa: r.returnOnAssetsTTM,
     grossMargin: r.grossProfitMarginTTM, operatingMargin: r.operatingProfitMarginTTM,
-    netMargin: r.netProfitMarginTTM, dividendYield: r.dividendYieldTTM, beta: p.beta,
+    netMargin: r.netProfitMarginTTM, dividendYield: normalizeYield(r.dividendYieldTTM), beta: p.beta,
     week52High: num((p.range || "").split("-")[1]), week52Low: num((p.range || "").split("-")[0]),
     historical: hist,
   };
@@ -160,7 +176,7 @@ async function fetchFinnhub(ticker, key) {
     bvps: m.bookValuePerShareQuarterly, pe: m.peTTM, pb: m.pbQuarterly,
     ps: m.psTTM, roe: m.roeTTM, roa: m.roaTTM,
     grossMargin: m.grossMarginTTM, netMargin: m.netProfitMarginTTM,
-    dividendYield: m.dividendYieldIndicatedAnnual, beta: m.beta,
+    dividendYield: normalizeYield(m.dividendYieldIndicatedAnnual), beta: m.beta,
     week52High: m["52WeekHigh"], week52Low: m["52WeekLow"], historical: [],
   };
 }
@@ -184,7 +200,7 @@ async function fetchYahoo(ticker) {
     marketCap: price.marketCap?.raw, shares: ks?.sharesOutstanding?.raw,
     eps: ks?.trailingEps?.raw, pe: sd?.trailingPE?.raw, pb: ks?.priceToBook?.raw,
     ps: sd?.priceToSalesTrailing12Months?.raw, beta: sd?.beta?.raw,
-    dividendYield: sd?.dividendYield?.raw, fcf: fd?.freeCashflow?.raw,
+    dividendYield: normalizeYield(sd?.dividendYield?.raw), fcf: fd?.freeCashflow?.raw,
     operatingCashFlow: fd?.operatingCashflow?.raw, ebitda: fd?.ebitda?.raw,
     revenue: fd?.totalRevenue?.raw, roe: fd?.returnOnEquity?.raw,
     debt: fd?.totalDebt?.raw, cash: fd?.totalCash?.raw,

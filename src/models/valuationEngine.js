@@ -104,7 +104,12 @@ function grahamValuation({ eps, epsGrowth, bvps, aaaYield }) {
 /** PETER LYNCH (modello #5). Fair PE = growth% (+div yield). FV = EPS*fairPE. */
 function lynchValuation({ eps, epsGrowth, dividendYield }) {
   const g = (epsGrowth || 0) * 100;
-  const dy = (dividendYield || 0) * 100;
+  // Guardia di sicurezza: se dividendYield arriva già come % invece che come
+  // frazione (es. inserimento manuale errato), un valore >25 qui sarebbe un
+  // dividend yield implausibile (>2500%) — probabile errore di unità, tronca.
+  let dyRaw = (dividendYield || 0) * 100;
+  if (dyRaw > 25) dyRaw = dyRaw / 100;
+  const dy = dyRaw;
   const fairPE = g + dy;                       // PEG(+yield)=1
   return { fairValue: eps > 0 ? eps * fairPE : NaN, fairPE };
 }
