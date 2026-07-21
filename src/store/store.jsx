@@ -35,15 +35,32 @@ function damodaranScenarioDefaults(sectorName, data) {
   // del DCF/Sven Carlin "flat" più sotto, dove la stessa crescita si
   // applicherebbe linearmente per 10 anni senza decelerare.
   const g1Base = data.revenueGrowth && data.revenueGrowth > 0 ? Math.min(data.revenueGrowth, 0.35) : 0.10;
-  const currentMargin = data.operatingMargin && data.operatingMargin > 0 ? data.operatingMargin : sec.typicalOperatingMargin * 0.75;
+
+  // Margine attuale: usa operatingMargin se esplicito, altrimenti lo deriva
+  // da EBIT/Revenue se presenti (fondamentale per l'inserimento MANUALE, che
+  // non ha un campo "operatingMargin" dedicato — senza questo fallback un
+  // utente che inserisce ricavi ed EBIT a mano vedrebbe comunque un margine
+  // generico di settore, ignorando i numeri appena digitati).
+  const impliedMargin = data.revenue && data.revenue > 0 && data.ebit != null ? data.ebit / data.revenue : null;
+  const currentMargin = (data.operatingMargin && data.operatingMargin > 0)
+    ? data.operatingMargin
+    : (impliedMargin && impliedMargin > 0 ? impliedMargin : sec.typicalOperatingMargin * 0.75);
+
+  // Margine target "Base": media tra il margine ATTUALE dell'azienda e il
+  // tipico di settore — non più il tipico di settore da solo, che ignorava
+  // del tutto la redditività reale dell'azienda (es. un'azienda con margini
+  // strutturalmente più alti/bassi della media di settore vedrebbe comunque
+  // una convergenza totale e ingiustificata verso la media).
+  const targetMarginBase = (currentMargin + sec.typicalOperatingMargin) / 2;
+
   return {
     currentMargin,
     n1: 5,
     n2: 5,
     scenarios: [
-      { g1: Math.min(g1Base * 1.4 + 0.02, 0.5), targetMargin: Math.min(sec.typicalOperatingMargin * 1.15, 0.6), gStable: 0.025, salesToCapital: sec.typicalSalesToCapital * 1.15 }, // Bull
-      { g1: g1Base, targetMargin: sec.typicalOperatingMargin, gStable: 0.025, salesToCapital: sec.typicalSalesToCapital }, // Base
-      { g1: Math.max(g1Base * 0.5, 0), targetMargin: sec.typicalOperatingMargin * 0.85, gStable: 0.02, salesToCapital: sec.typicalSalesToCapital * 0.85 }, // Bear
+      { g1: Math.min(g1Base * 1.4 + 0.02, 0.5), targetMargin: Math.min(Math.max(targetMarginBase, currentMargin) * 1.1, 0.6), gStable: 0.025, salesToCapital: sec.typicalSalesToCapital * 1.15 }, // Bull
+      { g1: g1Base, targetMargin: targetMarginBase, gStable: 0.025, salesToCapital: sec.typicalSalesToCapital }, // Base
+      { g1: Math.max(g1Base * 0.5, 0), targetMargin: targetMarginBase * 0.85, gStable: 0.02, salesToCapital: sec.typicalSalesToCapital * 0.85 }, // Bear
     ],
     probabilities: [0.2, 0.6, 0.2],
   };

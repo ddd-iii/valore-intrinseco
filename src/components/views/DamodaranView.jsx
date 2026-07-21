@@ -167,7 +167,7 @@ function DamodaranView() {
                           {label}
                         </div>
                         <input
-                          key={`${key}-${d[key] ?? "empty"}`}
+                          key={key}
                           type="number"
                           defaultValue={nullish ? "" : d[key]}
                           placeholder={ph}
